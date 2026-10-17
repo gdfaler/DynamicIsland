@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/social-preview.png" width="820" alt="DynamicIsland">
+
 # DynamicIsland
 
 **Turns the MacBook notch into an iPhone-style dynamic island.**
