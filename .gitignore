@@ -1,0 +1,11 @@
+# Сборка
+DynamicIsland.app/
+*.app/
+build/
+
+# Генерируется из MakeIcon.swift при сборке
+icon.png
+*.icns
+
+# macOS
+.DS_Store
