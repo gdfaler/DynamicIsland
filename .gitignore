@@ -2,6 +2,7 @@
 DynamicIsland.app/
 *.app/
 build/
+dist/
 
 # Генерируется из MakeIcon.swift при сборке
 icon.png
