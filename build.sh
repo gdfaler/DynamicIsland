@@ -97,13 +97,16 @@ CONF
 fi
 
 echo "→ Signing…"
+SIGNED=0
 if security find-certificate -c "$SIGN_ID" "$SIGN_KC" >/dev/null 2>&1; then
     security unlock-keychain -p "" "$SIGN_KC" 2>/dev/null || true
     # Pre-authorize codesign to use the key (the keychain password is empty) — otherwise macOS asks for it by hand.
     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$SIGN_KC" >/dev/null 2>&1 || true
-    codesign --force --sign "$SIGN_ID" --keychain "$SIGN_KC" "$APP"
-else
-    echo "  (couldn't create a persistent signature — signing ad-hoc; permissions will then fall off each rebuild)"
+    if codesign --force --sign "$SIGN_ID" --keychain "$SIGN_KC" "$APP"; then SIGNED=1; fi
+fi
+if [ "$SIGNED" -eq 0 ]; then
+    # The certificate may exist but be unusable (e.g. a fresh CI keychain) — fall back to ad-hoc.
+    echo "  (couldn't sign with the persistent identity — signing ad-hoc; permissions will then fall off each rebuild)"
     codesign --force --sign - "$APP"
 fi
 
