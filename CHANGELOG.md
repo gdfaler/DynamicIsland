@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2
 
 - **Update notifications.** The island announces a new release (green arrow and version; click opens the release
   page). Until you open it, a green chip with the version stays in the expanded island, the menu bar icon carries a

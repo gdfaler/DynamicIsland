@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 APP="DynamicIsland.app"
 BUNDLE_ID="local.dynamicisland"
-VERSION="1.1"
+VERSION="1.2"
 
 # If an old instance is running, close it.
 if pkill -x DynamicIsland 2>/dev/null; then sleep 1; fi
@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>DynamicIsland</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
-    <key>CFBundleVersion</key><string>2</string>
+    <key>CFBundleVersion</key><string>3</string>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleLocalizations</key><array><string>en</string><string>ru</string></array>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
