@@ -11,14 +11,13 @@ cask "dynamicisland" do
   desc "Turns the MacBook notch into an iPhone-style dynamic island"
   homepage "https://github.com/gdfaler/DynamicIsland"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "DynamicIsland.app"
 
   # The app is self-signed and not notarized; drop the quarantine flag so it opens without the Gatekeeper dance.
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-dr", "com.apple.quarantine", "#{appdir}/DynamicIsland.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/DynamicIsland.app"], must_succeed: false
   end
 
   zap trash: [
