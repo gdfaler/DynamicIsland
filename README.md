@@ -55,7 +55,9 @@ At rest the island blends into the notch and stays out of the way; it stretches 
 - **Download** the `.dmg` or `.zip` from [Releases](https://github.com/gdfaler/DynamicIsland/releases), drag the app to
   Applications. It's self-signed and not notarized, so the first time: right-click → **Open**, or run
   `xattr -cr /Applications/DynamicIsland.app`.
-- **Homebrew** (once the tap is published): `brew install --cask gdfaler/tap/dynamicisland`.
+- **Homebrew** (this repository is its own tap):
+  `brew tap gdfaler/dynamicisland https://github.com/gdfaler/DynamicIsland` and then
+  `brew install --cask dynamicisland`. The cask also clears the quarantine flag, so no right-click → Open is needed.
 - **From source**: see below.
 
 The island tells you when a new version is out (a green arrow with the version; click it to open the release page).

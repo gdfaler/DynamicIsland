@@ -52,4 +52,4 @@ Notes: the command-line toolchain has no SwiftUI macros, so use `@StateObject` /
 ## Releasing (maintainers)
 
 Bump `VERSION` in `build.sh`, move *Unreleased* to the new version in `CHANGELOG.md`, tag `vX.Y` and push the tag — the
-*Release* workflow builds the `.dmg`/`.zip` and attaches them to the GitHub release.
+*Release* workflow builds the `.dmg`/`.zip` and attaches them to the GitHub release. Then update `version` and `sha256` in `Casks/dynamicisland.rb`.

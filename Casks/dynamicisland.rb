@@ -1,5 +1,7 @@
-# Homebrew cask for DynamicIsland. Put this file in a tap repository (e.g. gdfaler/homebrew-tap, folder Casks/)
-# and update `version` and `sha256` for each release:  shasum -a 256 dist/DynamicIsland-<version>.zip
+# Homebrew cask for DynamicIsland, served from this repository as a tap:
+#   brew tap gdfaler/dynamicisland https://github.com/gdfaler/DynamicIsland
+#   brew install --cask dynamicisland
+# Update `version` and `sha256` for each release:  shasum -a 256 DynamicIsland-<version>.zip
 cask "dynamicisland" do
   version "1.2"
   sha256 "06814af04d8c3763dd600c1741074322ba5d6d6e6d110e148e9cecb512e3c181"
