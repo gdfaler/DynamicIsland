@@ -4,8 +4,7 @@ DynamicIsland.app/
 build/
 dist/
 
-# Генерируется из MakeIcon.swift при сборке
-icon.png
+# Генерируется из icon.png при сборке (сам icon.png лежит в репозитории)
 *.icns
 
 # macOS
