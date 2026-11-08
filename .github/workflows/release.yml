@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches the app version
+        run: |
+          version=$(sed -n 's/^VERSION="\(.*\)"/\1/p' build.sh)
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "build.sh says $version, tag is $GITHUB_REF_NAME"; exit 1; }
+      - name: Build the dmg and zip
+        run: ./package.sh
+      - name: Release notes from the changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## $version" '$0 == v {on=1; next} /^## /{on=0} on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          cat >> "$RUNNER_TEMP/notes.md" <<'NOTE'
+
+          The app is self-signed, not notarized: on first launch right-click → Open, or run `xattr -cr /Applications/DynamicIsland.app`.
+          NOTE
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "DynamicIsland ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
