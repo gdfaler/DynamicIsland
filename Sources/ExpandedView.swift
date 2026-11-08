@@ -1,6 +1,6 @@
 import SwiftUI
 
-private let uiLocale = Locale(identifier: "en_US")
+private let uiLocale = Locale.current
 
 private func dateFormatter(_ format: String) -> DateFormatter {
     let formatter = DateFormatter()
@@ -88,8 +88,8 @@ struct MusicPanel: View {
                 }
                 .lineLimit(1)
                 Spacer(minLength: 8)
-                EqualizerBars(meter: meter, color: media.accent, isPlaying: track.isPlaying)
-                    .frame(width: 24, height: 18)
+                EqualizerBars(meter: meter, color: media.accent, image: media.backdrop, isPlaying: track.isPlaying)
+                    .frame(width: 30, height: 20)
             }
             .padding(.top, 8)
 
@@ -225,14 +225,14 @@ struct TimerPanel: View {
                 if timer.isActive {
                     CountdownText(timer: timer, size: 19)
                     Spacer(minLength: 0)
-                    chip("+1 min", width: 62) { timer.add(minutes: 1) }
+                    chip(L("+1 min"), width: 62) { timer.add(minutes: 1) }
                     chip(symbol: timer.isRunning ? "pause.fill" : "play.fill") { timer.togglePause() }
                     chip(symbol: "xmark") { timer.cancel() }
                 } else {
                     ForEach(Self.presets, id: \.self) { minutes in
                         chip("\(minutes)", width: nil) { timer.start(minutes: minutes) }
                     }
-                    Text("min")
+                    Text(L("min"))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Palette.secondary)
                 }

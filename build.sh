@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 
 APP="DynamicIsland.app"
 BUNDLE_ID="local.dynamicisland"
+VERSION="1.1"
 
 # If an old instance is running, close it.
 if pkill -x DynamicIsland 2>/dev/null; then sleep 1; fi
@@ -25,17 +26,21 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
     <key>CFBundleName</key><string>DynamicIsland</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>2</string>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>en</string><string>ru</string></array>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSAppleEventsUsageDescription</key><string>The island shows the artwork and position of the current track and controls playback in Music.</string>
+    <key>NSAppleEventsUsageDescription</key><string>The island shows the artwork and position of the current track and controls playback in Music, Spotify and the browser.</string>
 </dict>
 </plist>
 PLIST
+
+# Localizations (Resources/<lang>.lproj/Localizable.strings).
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
 # Icon: drop your own icon.png (1024×1024) next to this script; if there's none, draw the default one.
 if [ ! -f icon.png ]; then

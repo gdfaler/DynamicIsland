@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let power = PowerMonitor()
     private let audio = AudioMonitor()
     private let timer = CountdownTimer()
-    private lazy var model = IslandModel(settings: settings, media: media, power: power, timer: timer)
+    private let meter = AudioMeter()
 
     private let menu = NSMenu()
     private var controller: IslandController?
@@ -40,41 +40,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsWatch: AnyCancellable?
 
     private let toggles: [(title: String, key: ReferenceWritableKeyPath<Settings, Bool>)] = [
-        ("Music (Music, Spotify)", \.music),
-        ("Music from browser (Safari)", \.web),
-        ("Sound visualizer (screen recording)", \.reactiveViz),
-        ("Charging & low battery", \.power),
-        ("Volume", \.volume),
-        ("Audio devices", \.devices),
-        ("Expand on hover", \.expandOnHover),
-        ("Trackpad haptics", \.haptics),
-        ("Show in fullscreen", \.showInFullscreen),
-        ("Menu bar icon", \.menuBarIcon),
+        (L("Music (Music, Spotify)"), \.music),
+        (L("Music from browser (Safari, Chrome, Brave, Edge, Arc)"), \.web),
+        (L("Sound visualizer (screen recording)"), \.reactiveViz),
+        (L("Charging & low battery"), \.power),
+        (L("Volume"), \.volume),
+        (L("Audio devices"), \.devices),
+        (L("Expand on hover"), \.expandOnHover),
+        (L("Trackpad haptics"), \.haptics),
+        (L("Show in fullscreen"), \.showInFullscreen),
+        (L("Island on displays without a notch"), \.virtualIsland),
+        (L("Menu bar icon"), \.menuBarIcon),
     ]
     /// How many leading toggles concern the island's content; the rest concern its behavior.
     private static let contentToggles = 6
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
-        let controller = IslandController(model: model, menu: menu)
+        let controller = IslandController(settings: settings, menu: menu) { [self] in
+            IslandModel(settings: settings, media: media, power: power, timer: timer, meter: meter)
+        }
         self.controller = controller
 
         if let dir = ProcessInfo.processInfo.environment["ISLAND_SNAPSHOT_DIR"] {
-            Snapshots.run(model: model, panel: controller.panel, into: dir)
+            if let primary = controller.primary {
+                Snapshots.run(model: primary.model, panel: primary.panel, into: dir)
+            }
             return
         }
 
-        timer.onFinish = { [weak self] in self?.model.show(.timerDone) }
+        timer.onFinish = { [weak self] in self?.controller?.show(.timerDone) }
         power.onAlert = { [weak self] kind in
             guard let self, self.settings.power else { return }
-            self.model.show(kind)
+            self.controller?.show(kind)
         }
         audio.onAlert = { [weak self] kind in
             guard let self else { return }
             if case .device = kind {
-                if self.settings.devices { self.model.show(kind) }
+                if self.settings.devices { self.controller?.show(kind) }
             } else if self.settings.volume {
-                self.model.show(kind)
+                self.controller?.show(kind)
             }
         }
         power.start()
@@ -89,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func applySettings() {
         media.configure(localPlayers: settings.music, web: settings.web)
         controller?.applyFullscreenBehavior()
+        controller?.place()
 
         if settings.menuBarIcon, statusItem == nil {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -106,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        menu.addItem(.sectionHeader(title: "Show in the island"))
+        menu.addItem(.sectionHeader(title: L("Show in the island")))
         for (index, toggle) in toggles.enumerated() {
             if index == Self.contentToggles { menu.addItem(.separator()) }
             let item = NSMenuItem(title: toggle.title, action: #selector(toggleSetting(_:)), keyEquivalent: "")
@@ -115,12 +121,91 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.state = settings[keyPath: toggle.key] ? .on : .off
             menu.addItem(item)
         }
-        let login = NSMenuItem(title: "Launch at login", action: #selector(toggleLoginItem), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(displaysItem())
+        menu.addItem(virtualStyleItem())
+        menu.addItem(virtualSizeItem())
+        let login = NSMenuItem(title: L("Launch at login"), action: #selector(toggleLoginItem), keyEquivalent: "")
         login.target = self
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit DynamicIsland", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: L("Quit DynamicIsland"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    // MARK: Displays
+
+    private func displaysItem() -> NSMenuItem {
+        let item = NSMenuItem(title: L("Show on"), action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let modes: [(DisplayMode, String)] = [(.auto, L("Automatic (notch display)")),
+                                              (.follow, L("Follow the cursor")), (.all, L("All displays"))]
+        for (mode, title) in modes {
+            let entry = NSMenuItem(title: title, action: #selector(chooseDisplayMode(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = mode.rawValue
+            entry.state = settings.displayMode == mode ? .on : .off
+            sub.addItem(entry)
+        }
+        sub.addItem(.separator())
+        sub.addItem(.sectionHeader(title: L("Only on")))
+        for screen in NSScreen.screens {
+            let entry = NSMenuItem(title: screen.localizedName, action: #selector(pinDisplay(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = screen.uuid
+            entry.state = settings.displayMode == .pinned && settings.pinnedDisplay == screen.uuid ? .on : .off
+            sub.addItem(entry)
+        }
+        item.submenu = sub
+        return item
+    }
+
+    private func virtualStyleItem() -> NSMenuItem {
+        let item = NSMenuItem(title: L("Without a notch"), action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let styles: [(VirtualStyle, String)] = [(.hidden, L("Hidden until needed")), (.pill, L("Always visible")),
+                                                (.clickPill, L("Always visible, expand on click"))]
+        for (style, title) in styles {
+            let entry = NSMenuItem(title: title, action: #selector(chooseVirtualStyle(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = style.rawValue
+            entry.state = settings.virtualStyle == style ? .on : .off
+            sub.addItem(entry)
+        }
+        item.submenu = sub
+        return item
+    }
+
+    private func virtualSizeItem() -> NSMenuItem {
+        let item = NSMenuItem(title: L("Size without a notch"), action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        for (scale, title) in [(0.0, L("Automatic")), (1.0, "100 %"), (1.25, "125 %"), (1.5, "150 %"), (1.75, "175 %"), (2.0, "200 %")] {
+            let entry = NSMenuItem(title: title, action: #selector(chooseVirtualScale(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = scale
+            entry.state = settings.virtualScale == scale ? .on : .off
+            sub.addItem(entry)
+        }
+        item.submenu = sub
+        return item
+    }
+
+    @objc private func chooseVirtualScale(_ sender: NSMenuItem) {
+        if let scale = sender.representedObject as? Double { settings.virtualScale = scale }
+    }
+
+    @objc private func chooseDisplayMode(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let mode = DisplayMode(rawValue: raw) { settings.displayMode = mode }
+    }
+
+    @objc private func pinDisplay(_ sender: NSMenuItem) {
+        guard let uuid = sender.representedObject as? String else { return }
+        settings.pinnedDisplay = uuid
+        settings.displayMode = .pinned
+    }
+
+    @objc private func chooseVirtualStyle(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let style = VirtualStyle(rawValue: raw) { settings.virtualStyle = style }
     }
 
     @objc private func toggleSetting(_ sender: NSMenuItem) {
@@ -137,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Couldn't change launch-at-login"
+            alert.messageText = L("Couldn't change launch-at-login")
             alert.informativeText = error.localizedDescription
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()

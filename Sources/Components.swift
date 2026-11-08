@@ -24,11 +24,14 @@ struct ArtworkView: View {
     }
 }
 
-/// Equalizer bars with a gradient fill. When audio capture is working (`meter.isReactive`), the heights follow
+/// Equalizer bars: sharp stripes cut out of the track's artwork blurred beyond recognition (it shows through them
+/// like color through stained glass). When audio capture is working (`meter.isReactive`), the heights follow
 /// the real spectrum of the music; otherwise a smooth fallback animation keeps them from standing still.
 struct EqualizerBars: NSViewRepresentable {
     var meter: AudioMeter
     var color: NSColor
+    /// The blurred artwork the bars are filled with; without it they take the plain `color`.
+    var image: NSImage?
     var isPlaying: Bool
 
     func makeNSView(context: Context) -> EqualizerBarsView {
@@ -38,6 +41,7 @@ struct EqualizerBars: NSViewRepresentable {
     }
 
     func updateNSView(_ view: EqualizerBarsView, context: Context) {
+        view.image = image
         view.color = color
         view.isPlaying = isPlaying
     }
@@ -49,9 +53,13 @@ final class EqualizerBarsView: NSView {
 
     weak var meter: AudioMeter?
     var color = NSColor.white { didSet { if color != oldValue { restyle() } } }
+    var image: NSImage? { didSet { if image !== oldValue { restyle() } } }
     var isPlaying = false { didSet { if isPlaying != oldValue { refresh() } } }
 
-    private let bars = (0..<barCount).map { _ in CAGradientLayer() }
+    private let bars = (0..<barCount).map { _ in CALayer() }
+    /// The blurred artwork, visible only through the bars: they're its mask.
+    private let fill = CALayer()
+    private let mask = CALayer()
     private var heights = [CGFloat](repeating: minScale, count: barCount)
     private var phase: CGFloat = 0
     private var ticker: Timer?
@@ -60,11 +68,13 @@ final class EqualizerBarsView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         layer?.masksToBounds = false
+        fill.contentsGravity = .resize
+        fill.mask = mask
+        layer?.addSublayer(fill)
         for bar in bars {
-            bar.startPoint = CGPoint(x: 0.5, y: 0)   // gradient from bottom to top
-            bar.endPoint = CGPoint(x: 0.5, y: 1)
+            bar.backgroundColor = NSColor.white.cgColor
             bar.anchorPoint = CGPoint(x: 0.5, y: 0)  // grow from the bottom edge
-            layer?.addSublayer(bar)
+            mask.addSublayer(bar)
         }
         restyle()
     }
@@ -77,6 +87,8 @@ final class EqualizerBarsView: NSView {
         let width = max(2, (step * 0.6).rounded())
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        fill.frame = bounds
+        mask.frame = CGRect(origin: .zero, size: bounds.size)
         for (index, bar) in bars.enumerated() {
             bar.bounds = CGRect(x: 0, y: 0, width: width, height: bounds.height)
             bar.position = CGPoint(x: step * (CGFloat(index) + 0.5), y: 0)
@@ -92,12 +104,15 @@ final class EqualizerBarsView: NSView {
     }
 
     private func restyle() {
-        // Gradient: the saturated artwork color at the bottom, a lightened tint of it at the top.
-        let bottom = color
-        let top = color.blended(withFraction: 0.45, of: .white) ?? color
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        bars.forEach { $0.colors = [top.cgColor, bottom.cgColor] }
+        if let image, let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            fill.contents = cg
+            fill.backgroundColor = nil
+        } else {
+            fill.contents = nil
+            fill.backgroundColor = color.cgColor
+        }
         CATransaction.commit()
     }
 

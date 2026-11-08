@@ -4,8 +4,15 @@ import SwiftUI
 struct IslandView: View {
     @ObservedObject var model: IslandModel
 
+    /// Centring a scaled island in its window can land on half a pixel, which blurs the text — nudge it onto a whole one.
+    private func pixelSnap(_ layout: IslandLayout) -> CGFloat {
+        let offset = (model.canvasWidth - layout.width * model.scale) / 2
+        return offset.rounded() - offset
+    }
+
     var body: some View {
         let layout = model.layout
+        let visibility = model.visibility
         ZStack(alignment: .top) {
             switch model.presentation {
             case .expanded:
@@ -23,6 +30,11 @@ struct IslandView: View {
         .frame(width: layout.width, height: layout.height, alignment: .top)
         .background(Color.black)
         .clipShape(NotchShape(bottomRadius: layout.bottomRadius, topFillet: layout.topFillet))
+        .opacity(visibility)
+        .scaleEffect(x: 0.55 + 0.45 * visibility, y: 0.35 + 0.65 * visibility, anchor: .top)
+        .animation(Motion.presence, value: visibility)
+        .scaleEffect(model.scale, anchor: .top)
+        .offset(x: pixelSnap(layout))
         .shadow(color: .black.opacity(layout.isExpanded ? 0.4 : 0), radius: 12, y: 6)
         .contentShape(Rectangle())
         .onTapGesture { model.expand() }
@@ -69,7 +81,7 @@ struct CompactRow: View {
             if model.timer.isActive {
                 CountdownText(timer: model.timer, size: 13)
             } else {
-                EqualizerBars(meter: model.meter, color: model.media.accent,
+                EqualizerBars(meter: model.meter, color: model.media.accent, image: model.media.backdrop,
                               isPlaying: model.media.track?.isPlaying ?? false)
                     .frame(width: 20, height: 15)
             }
@@ -92,9 +104,9 @@ struct AlertRow: View {
     @ViewBuilder private var leading: some View {
         switch alert.kind {
         case .charging:
-            Text("Charging")
+            Text(L("Charging"))
         case .lowBattery:
-            Text("Low battery")
+            Text(L("Low battery"))
         case .volume(let level, let muted):
             Image(systemName: muted ? "speaker.slash.fill" : level < 0.34 ? "speaker.wave.1.fill"
                     : level < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill")
@@ -122,7 +134,7 @@ struct AlertRow: View {
         case .device(let name, _):
             Text(name)
         case .timerDone:
-            Text("Timer").foregroundStyle(Palette.orange)
+            Text(L("Timer")).foregroundStyle(Palette.orange)
         }
     }
 

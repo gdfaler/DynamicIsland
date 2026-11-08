@@ -60,6 +60,8 @@ final class NowPlaying: ObservableObject {
 
     @Published private(set) var track: Track?
     @Published private(set) var artwork: NSImage?
+    /// The artwork blurred beyond recognition — what the visualizer's bars are filled with.
+    @Published private(set) var backdrop: NSImage?
     /// Equalizer bar color — the average color of the artwork.
     @Published private(set) var accent = NSColor.white
     /// Whether to show the track in the collapsed island.
@@ -77,7 +79,7 @@ final class NowPlaying: ObservableObject {
 
     private let music = ScriptablePlayer(.music)
     private let spotify = ScriptablePlayer(.spotify)
-    private let browser = BrowserSource()
+    private let browsers = Browser.allCases.map { BrowserSource($0) }
     private var sources: [MediaSource] = []
 
     private var active: MediaSource?
@@ -87,7 +89,7 @@ final class NowPlaying: ObservableObject {
     private var lingerEnd: DispatchWorkItem?
 
     init() {
-        sources = [music, spotify, browser]
+        sources = [music, spotify] + browsers
         for source in sources {
             source.onChange = { [weak self] in self?.recompute() }
         }
@@ -97,7 +99,7 @@ final class NowPlaying: ObservableObject {
     func configure(localPlayers: Bool, web: Bool) {
         music.setRunning(localPlayers)
         spotify.setRunning(localPlayers)
-        browser.setRunning(web)
+        browsers.forEach { $0.setRunning(web) }
         recompute()
     }
 
@@ -158,6 +160,7 @@ final class NowPlaying: ObservableObject {
         lingerEnd?.cancel()
         guard let new else {
             artwork = nil
+            backdrop = nil
             shownTrackID = nil
             accent = .white
             isLive = false
@@ -174,6 +177,7 @@ final class NowPlaying: ObservableObject {
 
     func setArtwork(_ image: NSImage?) {
         artwork = image
+        backdrop = image.flatMap(BlurredArtwork.make)
         accent = image.flatMap(Self.accentColor) ?? .white
     }
 

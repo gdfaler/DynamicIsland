@@ -13,6 +13,8 @@ enum Motion {
     /// Expanding is springy with a slight overshoot; collapsing is calm.
     static let open = Animation.spring(response: 0.42, dampingFraction: 0.74)
     static let close = Animation.spring(response: 0.36, dampingFraction: 0.9)
+    /// The island appearing on or leaving a display: grows out of (and shrinks back into) its notch.
+    static let presence = Animation.spring(response: 0.55, dampingFraction: 0.8)
 }
 
 /// 75 → "1:15", 3725 → "1:02:05".

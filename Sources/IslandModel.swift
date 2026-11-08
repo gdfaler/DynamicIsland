@@ -72,10 +72,18 @@ final class IslandModel: ObservableObject {
     let power: PowerMonitor
     let timer: CountdownTimer
     /// Sound level for the visualizer — capture turns on only while something is playing.
-    let meter = AudioMeter()
+    let meter: AudioMeter
 
     /// Size of the camera cutout on the built-in display.
     @Published var notch = CGSize(width: 179, height: 32)
+    /// True when there's no physical cutout and the island sits on a virtual one (invisible at rest).
+    @Published var isVirtual = false
+    /// Enlargement of the whole island (1 on a real notch).
+    @Published var scale: CGFloat = 1
+    /// Width of the island's window, to place the island on a whole pixel.
+    var canvasWidth: CGFloat = 560
+    /// Whether this display currently carries the island (per the "show on" mode).
+    @Published private(set) var isShown = true
     @Published private(set) var isExpanded = false
     @Published private(set) var isHovering = false
     @Published private(set) var alert: IslandAlert?
@@ -85,8 +93,9 @@ final class IslandModel: ObservableObject {
     private var pendingCollapse: DispatchWorkItem?
     private var pendingDismissal: DispatchWorkItem?
 
-    init(settings: Settings, media: NowPlaying, power: PowerMonitor, timer: CountdownTimer) {
+    init(settings: Settings, media: NowPlaying, power: PowerMonitor, timer: CountdownTimer, meter: AudioMeter) {
         self.settings = settings
+        self.meter = meter
         self.media = media
         self.power = power
         self.timer = timer
@@ -119,6 +128,27 @@ final class IslandModel: ObservableObject {
         if let alert { return .alert(alert) }
         if musicIsLive || timer.isActive { return .compact }
         return .idle
+    }
+
+    /// 0 = the island isn't drawn (not on this display, or resting invisibly on a virtual notch), 1 = fully there.
+    var visibility: Double {
+        guard isShown else { return 0 }
+        if isVirtual, settings.virtualStyle == .hidden, presentation == .idle, !isHovering { return 0 }
+        return 1
+    }
+
+    /// On a "click" pill the island never expands under the cursor.
+    private var hoverExpands: Bool {
+        settings.expandOnHover && !(isVirtual && settings.virtualStyle == .clickPill)
+    }
+
+    func setShown(_ shown: Bool) {
+        guard shown != isShown else { return }
+        isShown = shown
+        if !shown {
+            pendingExpansion?.cancel()
+            collapse()
+        }
     }
 
     var expandedHeight: CGFloat {
@@ -155,7 +185,7 @@ final class IslandModel: ObservableObject {
         pendingCollapse?.cancel()
         guard !isExpanded else { return }
         haptic(.alignment)
-        if settings.expandOnHover {
+        if hoverExpands {
             schedule(&pendingExpansion, after: 0.28) { [weak self] in self?.expand() }
         }
     }

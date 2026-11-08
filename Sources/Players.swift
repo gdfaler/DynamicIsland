@@ -1,4 +1,4 @@
-// Audio sources: local players through their AppleScript, and Safari through the public "do JavaScript".
+// Audio sources: local players through their AppleScript, and browsers through their public JavaScript hook.
 // Everything uses documented automation; the system asks for permission once.
 
 import AppKit
@@ -227,19 +227,70 @@ final class ScriptablePlayer: MediaSource {
     }
 
     static func automationHint(_ name: String) -> String {
-        "Let the island control \(name): System Settings → Privacy & Security → Automation"
+        String(format: L("Let the island control %@: System Settings → Privacy & Security → Automation"), name)
     }
 }
 
-// MARK: - Web (Safari)
+// MARK: - Web (Safari and Chromium browsers)
 
-/// Reads "now playing" from Safari tabs through the public "do JavaScript": what the page itself exposes in
+/// A browser the island can read from. Safari has `do JavaScript`; Chromium browsers have `execute javascript`.
+enum Browser: CaseIterable {
+    case safari, chrome, brave, edge, arc
+
+    var bundleID: String {
+        switch self {
+        case .safari: return "com.apple.Safari"
+        case .chrome: return "com.google.Chrome"
+        case .brave: return "com.brave.Browser"
+        case .edge: return "com.microsoft.edgemac"
+        case .arc: return "company.thebrowser.Browser"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .safari: return "Safari"
+        case .chrome: return "Chrome"
+        case .brave: return "Brave"
+        case .edge: return "Edge"
+        case .arc: return "Arc"
+        }
+    }
+
+    /// AppleScript that runs `js` (no double quotes inside) in the tab variable `tb`.
+    func run(_ js: String) -> String {
+        switch self {
+        case .safari: return "do JavaScript \"\(js)\" in tb"
+        default: return "execute tb javascript \"\(js)\""
+        }
+    }
+
+    var javaScriptHint: String {
+        switch self {
+        case .safari:
+            return L("For web players, enable in Safari: Develop → Allow JavaScript from Apple Events "
+                + "(the Develop menu is turned on in Safari → Settings → Advanced → Show features for web developers)")
+        default:
+            return String(format: L("For web players, enable in %@: View → Developer → Allow JavaScript from Apple Events"), name)
+        }
+    }
+}
+
+/// Reads "now playing" from browser tabs through the public JavaScript hook: what the page itself exposes in
 /// navigator.mediaSession, plus the state of <video>/<audio> tags. This is how YouTube and other audio are seen.
 final class BrowserSource: MediaSource {
-    let id = "com.apple.Safari"
-    let displayName = "Safari"
-    let icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari")
-        .map { NSWorkspace.shared.icon(forFile: $0.path) }
+    let browser: Browser
+    let id: String
+    let displayName: String
+    let icon: NSImage?
+
+    init(_ browser: Browser) {
+        self.browser = browser
+        id = browser.bundleID
+        displayName = browser.name
+        icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleID)
+            .map { NSWorkspace.shared.icon(forFile: $0.path) }
+    }
     let canSkip = true
     private(set) var track: Track?
     private(set) var hint: String?
@@ -298,13 +349,13 @@ final class BrowserSource: MediaSource {
             setPace(.idle)
             return
         }
-        runner.run(Self.queryScript) { [weak self] result, _ in
+        runner.run(queryScript) { [weak self] result, _ in
             guard let self else { return }
             if let best = self.pickTrack(from: result) {
                 self.hint = nil
                 self.jsConfirmed = true
                 self.update(self.merged(best))
-                // While paused keep polling often — otherwise a resume in Safari wouldn't be noticed right away.
+                // While paused keep polling often — otherwise a resume in the browser wouldn't be noticed right away.
                 self.setPace(best.isPlaying ? .playing : .paused)
             } else {
                 self.update(nil)
@@ -364,14 +415,14 @@ final class BrowserSource: MediaSource {
     /// Empty reply: either nothing really plays, or a permission is missing. Per-tab errors in the main query are
     /// swallowed by `try`, so a separate probe without `try` finds out the reason.
     private func classifyEmpty() {
-        runner.run(Self.probeScript) { [weak self] _, code in
+        runner.run(probeScript) { [weak self] _, code in
             guard let self else { return }
             if code == -1743 {
-                self.hint = ScriptablePlayer.automationHint("Safari")
+                self.hint = ScriptablePlayer.automationHint(browser.name)
                 self.setPace(.blocked)      // access blocked — poll rarely
             } else if code != nil {
-                // Safari works, Automation is allowed, but do JavaScript is disabled.
-                self.hint = Self.javaScriptHint
+                // The browser works, Automation is allowed, but do JavaScript is disabled.
+                self.hint = self.browser.javaScriptHint
                 self.setPace(.blocked)
             } else {
                 self.jsConfirmed = true     // JavaScript works, there's just nothing playing
@@ -383,11 +434,11 @@ final class BrowserSource: MediaSource {
 
     // MARK: Control
 
-    func togglePlayPause() { command(Self.controlScript(Self.toggleJS)) }
-    func next() { command(Self.controlScript(Self.clickJS(Self.nextSelectors))) }
-    func previous() { command(Self.controlScript(Self.clickJS(Self.prevSelectors))) }
+    func togglePlayPause() { command(controlScript(Self.toggleJS)) }
+    func next() { command(controlScript(Self.clickJS(Self.nextSelectors))) }
+    func previous() { command(controlScript(Self.clickJS(Self.prevSelectors))) }
     func seek(to position: TimeInterval) {
-        command(Self.controlScript("v.currentTime=\(String(format: "%.2f", position));"))
+        command(controlScript("v.currentTime=\(String(format: "%.2f", position));"))
     }
     func activate() { NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.activate() }
     func loadArtwork(for track: Track, completion: @escaping (NSImage?) -> Void) { completion(nil) }
@@ -403,7 +454,7 @@ final class BrowserSource: MediaSource {
     // MARK: Scripts
 
     /// Picks the page's main media element: the longest of the active ones (playing or already started).
-    /// This way a pause in Safari reads correctly, and a stray hidden video/ad doesn't pose as the track.
+    /// This way a pause in the browser reads correctly, and a stray hidden video/ad doesn't pose as the track.
     private static let pickBest = "var L=document.querySelectorAll('video,audio'),v=null,bs=-1;"
         + "for(var i=0;i<L.length;i++){var m=L[i];"
         + "if(!((!m.paused&&!m.ended)||m.currentTime>0))continue;"
@@ -439,13 +490,14 @@ final class BrowserSource: MediaSource {
             + "if(e){var r=e.getBoundingClientRect();if(r.width>0&&r.height>0){e.click();return '1';}}}return '';"
     }
 
-    private static let queryScript = """
+    private var queryScript: String {
+        """
         set out to {}
-        tell application id "com.apple.Safari"
+        tell application id "\(id)"
             repeat with w in windows
                 repeat with tb in tabs of w
                     try
-                        set r to (do JavaScript "\(readJS)" in tb)
+                        set r to (\(browser.run(Self.readJS)))
                         if r is not "" and r is not missing value then set end of out to (r as text)
                     end try
                 end repeat
@@ -453,16 +505,17 @@ final class BrowserSource: MediaSource {
         end tell
         return out
         """
+    }
 
     /// The action runs on the first tab where suitable media is found.
-    private static func controlScript(_ action: String) -> String {
-        let js = "(function(){" + pickBest + "if(!v)return '';\(action)return '1';})()"
+    private func controlScript(_ action: String) -> String {
+        let js = "(function(){" + Self.pickBest + "if(!v)return '';\(action)return '1';})()"
         return """
-            tell application id "com.apple.Safari"
+            tell application id "\(id)"
                 repeat with w in windows
                     repeat with tb in tabs of w
                         try
-                            if (do JavaScript "\(js)" in tb) is "1" then return
+                            if (\(browser.run(js))) is "1" then return
                         end try
                     end repeat
                 end repeat
@@ -470,14 +523,13 @@ final class BrowserSource: MediaSource {
             """
     }
 
-    private static let probeScript = """
-        tell application id "com.apple.Safari"
+    private var probeScript: String {
+        """
+        tell application id "\(id)"
             if (count of windows) is 0 then return "nowin"
-            return (do JavaScript "1" in current tab of front window) as text
+            set tb to \(browser == .safari ? "current tab" : "active tab") of front window
+            return (\(browser.run("1"))) as text
         end tell
         """
-
-    private static let javaScriptHint =
-        "For web players, enable in Safari: Develop → Allow JavaScript from Apple Events "
-        + "(the Develop menu is turned on in Safari → Settings → Advanced → Show features for web developers)"
+    }
 }

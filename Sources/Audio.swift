@@ -59,7 +59,7 @@ final class AudioMonitor {
 
     private func name(of device: AudioObjectID) -> String {
         let name = read(device, Self.address(kAudioObjectPropertyName), Unmanaged<CFString>?.none)
-        return name?.takeRetainedValue() as String? ?? "Audio device"
+        return name?.takeRetainedValue() as String? ?? L("Audio device")
     }
 
     private func symbol(for device: AudioObjectID) -> String {
