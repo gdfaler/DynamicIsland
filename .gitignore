@@ -10,3 +10,7 @@ icon.png
 
 # macOS
 .DS_Store
+
+# Local memory and notes (not published)
+.memory/
+CLAUDE.local.md

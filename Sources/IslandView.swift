@@ -37,7 +37,7 @@ struct IslandView: View {
         .offset(x: pixelSnap(layout))
         .shadow(color: .black.opacity(layout.isExpanded ? 0.4 : 0), radius: 12, y: 6)
         .contentShape(Rectangle())
-        .onTapGesture { model.expand() }
+        .onTapGesture { model.tapped() }
         .animation(layout.isExpanded ? Motion.open : Motion.close, value: layout)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ignoresSafeArea()
@@ -118,6 +118,10 @@ struct AlertRow: View {
             Image(systemName: "bell.fill")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Palette.orange)
+        case .update:
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Palette.green)
         }
     }
 
@@ -135,6 +139,8 @@ struct AlertRow: View {
             Text(name)
         case .timerDone:
             Text(L("Timer")).foregroundStyle(Palette.orange)
+        case .update(let version):
+            Text("v\(version)").foregroundStyle(Palette.green).monospacedDigit()
         }
     }
 

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something doesn't work or looks wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead? Screenshots help.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: DynamicIsland version
+      placeholder: "1.1"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: macOS version and Mac model
+      placeholder: "macOS 14.5, MacBook Air M2"
+    validations:
+      required: true
+  - type: dropdown
+    id: displays
+    attributes:
+      label: Displays
+      options:
+        - One display with a notch
+        - One display without a notch
+        - Several displays, one with a notch
+        - Several displays, none with a notch
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the player or browser if it's about music.

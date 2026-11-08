@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2
+
+- **Update notifications.** The island announces a new release (green arrow and version; click opens the release
+  page). Until you open it, a green chip with the version stays in the expanded island, the menu bar icon carries a
+  green dot, and the alert repeats once a day. *Check for updates…* in the menu, and an option to turn the automatic
+  check off.
+- **Experimental: Now Playing from any app** (off by default; *Settings → Content*). Uses the private MediaRemote
+  framework through a helper process, so it can break with a macOS update. Dedicated sources win when both report
+  the same track.
+- **Settings window** (menu → *Settings…*): General, Displays, Content, About.
+- **Visualizer colors.** The artwork colors are harmonized (hues pulled toward the dominant one, contrast stretched, a soft
+  foot-to-tip gradient on every bar) so a multicolored cover never gives clashing or flat bars.
+- Contributor docs (CONTRIBUTING, SECURITY, code of conduct), issue and PR templates.
+- CI (compile + localization check) and a release workflow that builds the `.dmg`/`.zip` on a version tag.
+- Homebrew cask template (`packaging/homebrew`).
+
 ## 1.1
 
 - **Several displays.** Choose where the island lives: the notch display (automatic), the display under the cursor,

@@ -80,6 +80,8 @@ final class NowPlaying: ObservableObject {
     private let music = ScriptablePlayer(.music)
     private let spotify = ScriptablePlayer(.spotify)
     private let browsers = Browser.allCases.map { BrowserSource($0) }
+    /// EXPERIMENTAL: Now Playing from any app through the private MediaRemote framework (off by default).
+    private let systemSource = MediaRemoteSource()
     private var sources: [MediaSource] = []
 
     private var active: MediaSource?
@@ -89,14 +91,15 @@ final class NowPlaying: ObservableObject {
     private var lingerEnd: DispatchWorkItem?
 
     init() {
-        sources = [music, spotify] + browsers
+        sources = [music, spotify] + browsers + [systemSource]
         for source in sources {
             source.onChange = { [weak self] in self?.recompute() }
         }
     }
 
     /// Enables the desired sources: local players and/or the web.
-    func configure(localPlayers: Bool, web: Bool) {
+    func configure(localPlayers: Bool, web: Bool, anyApp: Bool = false) {
+        systemSource.setRunning(anyApp)
         music.setRunning(localPlayers)
         spotify.setRunning(localPlayers)
         browsers.forEach { $0.setRunning(web) }
@@ -111,7 +114,13 @@ final class NowPlaying: ObservableObject {
             if playing && !(wasPlaying[source.id] ?? false) { startedPlaying[source.id] = Date() }
             wasPlaying[source.id] = playing
         }
-        let playing = sources.filter { $0.track?.isPlaying == true }
+        // The system-wide source mirrors what the dedicated sources already report (with better artwork and
+        // controls) — it only counts when it has something they don't.
+        let candidates = sources.filter { source in
+            guard source === systemSource, let title = source.track?.title else { return true }
+            return !sources.contains { $0 !== systemSource && $0.track?.title == title }
+        }
+        let playing = candidates.filter { $0.track?.isPlaying == true }
         let chosen: MediaSource?
         if let active, active.track?.isPlaying == true {
             // Don't interrupt the current source while it's playing — otherwise the island flickers.
@@ -123,7 +132,7 @@ final class NowPlaying: ObservableObject {
             // Nothing is playing, but the previous source is paused — stay on it.
             chosen = active
         } else {
-            chosen = sources.first { $0.track != nil }
+            chosen = candidates.first { $0.track != nil }
         }
         active = chosen
 

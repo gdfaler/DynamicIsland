@@ -33,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let audio = AudioMonitor()
     private let timer = CountdownTimer()
     private let meter = AudioMeter()
+    private let updates = UpdateChecker()
+    private let settingsWindow = SettingsWindowController()
 
     private let menu = NSMenu()
     private var controller: IslandController?
@@ -42,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let toggles: [(title: String, key: ReferenceWritableKeyPath<Settings, Bool>)] = [
         (L("Music (Music, Spotify)"), \.music),
         (L("Music from browser (Safari, Chrome, Brave, Edge, Arc)"), \.web),
+        (L("Now Playing from any app (experimental)"), \.anyApp),
         (L("Sound visualizer (screen recording)"), \.reactiveViz),
         (L("Charging & low battery"), \.power),
         (L("Volume"), \.volume),
@@ -50,15 +53,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         (L("Trackpad haptics"), \.haptics),
         (L("Show in fullscreen"), \.showInFullscreen),
         (L("Island on displays without a notch"), \.virtualIsland),
+        (L("Check for updates automatically"), \.updateCheck),
         (L("Menu bar icon"), \.menuBarIcon),
     ]
     /// How many leading toggles concern the island's content; the rest concern its behavior.
-    private static let contentToggles = 6
+    private static let contentToggles = 7
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
         let controller = IslandController(settings: settings, menu: menu) { [self] in
-            IslandModel(settings: settings, media: media, power: power, timer: timer, meter: meter)
+            let model = IslandModel(settings: settings, media: media, power: power, timer: timer, meter: meter)
+            model.openUpdate = { [weak self] in self?.updates.openReleasePage() }
+            return model
         }
         self.controller = controller
 
@@ -84,6 +90,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         power.start()
         audio.start()
+        updates.onPendingChange = { [weak self] release in
+            self?.controller?.setPendingUpdate(release?.version)
+            self?.updateBadge(release != nil)
+        }
+        updates.onNewVersion = { [weak self] release in self?.controller?.show(.update(version: release.version)) }
+
+        if ProcessInfo.processInfo.environment["ISLAND_OPEN_SETTINGS"] != nil { openSettings() }
 
         applySettings()
         settingsWatch = settings.objectWillChange.receive(on: DispatchQueue.main).sink { [weak self] _ in
@@ -92,9 +105,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func applySettings() {
-        media.configure(localPlayers: settings.music, web: settings.web)
+        media.configure(localPlayers: settings.music, web: settings.web, anyApp: settings.anyApp)
         controller?.applyFullscreenBehavior()
         controller?.place()
+        settings.updateCheck ? updates.start() : updates.stop()
 
         if settings.menuBarIcon, statusItem == nil {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -102,6 +116,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 .lazy.compactMap { NSImage(systemSymbolName: $0, accessibilityDescription: "DynamicIsland") }.first
             item.menu = menu
             statusItem = item
+            badge = nil
+            updateBadge(hasBadge)
         } else if !settings.menuBarIcon, let item = statusItem {
             NSStatusBar.system.removeStatusItem(item)
             statusItem = nil
@@ -122,15 +138,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
+        let preferences = NSMenuItem(title: L("Settings…"), action: #selector(openSettings), keyEquivalent: ",")
+        preferences.target = self
+        menu.addItem(preferences)
+        menu.addItem(.separator())
         menu.addItem(displaysItem())
         menu.addItem(virtualStyleItem())
         menu.addItem(virtualSizeItem())
+        if let release = updates.available {
+            let item = NSMenuItem(title: String(format: L("Update available: v%@ — download…"), release.version),
+                                  action: #selector(openUpdate), keyEquivalent: "")
+            item.target = self
+            menu.insertItem(item, at: 0)
+            menu.insertItem(.separator(), at: 1)
+        }
+        let check = NSMenuItem(title: L("Check for updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
+        check.target = self
+        menu.addItem(check)
         let login = NSMenuItem(title: L("Launch at login"), action: #selector(toggleLoginItem), keyEquivalent: "")
         login.target = self
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L("Quit DynamicIsland"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    /// A green dot on the menu bar icon while there's an update the user hasn't looked at. It's a separate view over
+    /// the (template) icon, so the icon itself still follows the menu bar's light/dark appearance.
+    private var hasBadge = false
+    private var badge: NSView?
+    private func updateBadge(_ on: Bool) {
+        hasBadge = on
+        guard let button = statusItem?.button else { return }
+        if badge == nil {
+            let dot = NSView(frame: NSRect(x: button.bounds.maxX - 9, y: button.bounds.maxY - 9, width: 7, height: 7))
+            dot.wantsLayer = true
+            dot.layer?.backgroundColor = NSColor.systemGreen.cgColor
+            dot.layer?.cornerRadius = 3.5
+            dot.autoresizingMask = [.minXMargin, .minYMargin]
+            button.addSubview(dot)
+            badge = dot
+        }
+        badge?.isHidden = !on
+    }
+
+    @objc private func openSettings() {
+        settingsWindow.show(settings: settings) { [weak self] in self?.checkForUpdates() }
+    }
+
+    @objc private func openUpdate() { updates.openReleasePage() }
+
+    @objc private func checkForUpdates() {
+        updates.check(userInitiated: true) { [weak self] result in
+            switch result {
+            case .success(.some): break    // the island announces it
+            case .success(.none):
+                self?.report(L("You're up to date"),
+                             String(format: L("DynamicIsland %@ is the latest version."), UpdateChecker.currentVersion))
+            case .failure(let error):
+                self?.report(L("Couldn't check for updates"), error.localizedDescription)
+            }
+        }
+    }
+
+    private func report(_ title: String, _ detail: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = detail
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     // MARK: Displays

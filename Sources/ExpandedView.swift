@@ -40,7 +40,20 @@ struct StatusStrip: View {
                     if let icon = model.media.activeIcon {
                         Image(nsImage: icon).resizable().frame(width: 15, height: 15)
                     }
-                    Text(model.media.activeName)
+                    if model.pendingUpdate == nil { Text(model.media.activeName) }
+                }
+                if let version = model.pendingUpdate {
+                    Button { model.openUpdate?() } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down.circle.fill")
+                            Text("v\(version)").monospacedDigit()
+                        }
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Palette.green)
+                        .padding(.horizontal, 7).frame(height: 20)
+                        .background(Palette.green.opacity(0.16), in: Capsule())
+                    }
+                    .buttonStyle(IslandButtonStyle())
                 }
             }
             Spacer(minLength: 0)

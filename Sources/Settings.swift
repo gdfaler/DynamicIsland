@@ -23,6 +23,8 @@ final class Settings: ObservableObject {
     @Published var music: Bool { didSet { defaults.set(music, forKey: "music") } }
     @Published var web: Bool { didSet { defaults.set(web, forKey: "web") } }
     @Published var reactiveViz: Bool { didSet { defaults.set(reactiveViz, forKey: "reactiveViz") } }
+    /// EXPERIMENTAL: Now Playing from any app through a private API. Off by default.
+    @Published var anyApp: Bool { didSet { defaults.set(anyApp, forKey: "anyApp") } }
     @Published var power: Bool { didSet { defaults.set(power, forKey: "power") } }
     @Published var volume: Bool { didSet { defaults.set(volume, forKey: "volume") } }
     @Published var devices: Bool { didSet { defaults.set(devices, forKey: "devices") } }
@@ -35,6 +37,7 @@ final class Settings: ObservableObject {
     @Published var virtualStyle: VirtualStyle { didSet { defaults.set(virtualStyle.rawValue, forKey: "virtualStyle") } }
     /// Size of the island on displays without a notch; 0 = automatic, by the display's width.
     @Published var virtualScale: Double { didSet { defaults.set(virtualScale, forKey: "virtualScale") } }
+    @Published var updateCheck: Bool { didSet { defaults.set(updateCheck, forKey: "updateCheck") } }
     @Published var virtualIsland: Bool { didSet { defaults.set(virtualIsland, forKey: "virtualIsland") } }
     @Published var menuBarIcon: Bool { didSet { defaults.set(menuBarIcon, forKey: "menuBarIcon") } }
 
@@ -42,12 +45,13 @@ final class Settings: ObservableObject {
 
     private init() {
         defaults.register(defaults: [
-            "music": true, "web": true, "reactiveViz": true, "power": true, "volume": true, "devices": true,
+            "music": true, "web": true, "reactiveViz": true, "updateCheck": true, "power": true, "volume": true, "devices": true,
             "expandOnHover": true, "haptics": true, "showInFullscreen": true, "menuBarIcon": true, "virtualIsland": true,
         ])
         music = defaults.bool(forKey: "music")
         web = defaults.bool(forKey: "web")
         reactiveViz = defaults.bool(forKey: "reactiveViz")
+        anyApp = defaults.bool(forKey: "anyApp")
         power = defaults.bool(forKey: "power")
         volume = defaults.bool(forKey: "volume")
         devices = defaults.bool(forKey: "devices")
@@ -58,6 +62,7 @@ final class Settings: ObservableObject {
         pinnedDisplay = defaults.string(forKey: "pinnedDisplay") ?? ""
         virtualStyle = VirtualStyle(rawValue: defaults.string(forKey: "virtualStyle") ?? "") ?? .hidden
         virtualScale = defaults.double(forKey: "virtualScale")
+        updateCheck = defaults.bool(forKey: "updateCheck")
         virtualIsland = defaults.bool(forKey: "virtualIsland")
         menuBarIcon = defaults.bool(forKey: "menuBarIcon")
     }

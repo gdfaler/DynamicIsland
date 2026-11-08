@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Type-check and compile
+        run: |
+          swiftc -O -swift-version 5 -parse-as-library -target arm64-apple-macos14.0 \
+            Sources/*.swift -o "$RUNNER_TEMP/DynamicIsland"
+      - name: Compile the experimental Now Playing bridge
+        run: clang -dynamiclib -arch arm64 -mmacosx-version-min=14.0 -framework CoreFoundation Bridge/mrbridge.c -o "$RUNNER_TEMP/libmrbridge.dylib"
+      - name: Localization keys
+        run: scripts/check-localization.sh

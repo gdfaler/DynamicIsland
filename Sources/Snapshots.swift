@@ -40,6 +40,13 @@ enum Snapshots {
                 model.timer.start(minutes: 10)
             }),
             ("12-expanded-clock", { model.timer.cancel() }),
+            ("13-update", { model.collapse(); model.show(.update(version: "1.2")) }),
+            ("14-expanded-update", {
+                model.media.present(track)
+                model.media.setArtwork(sampleArtwork())
+                model.pendingUpdate = "1.2"
+                model.expand()
+            }),
         ]
         func step() {
             guard let (name, action) = steps.popFirst() else { return NSApp.terminate(nil) }

@@ -7,7 +7,7 @@
 **Turns the MacBook notch into an iPhone-style dynamic island.**
 
 Music, a timer, battery, volume and output devices — right around the camera cutout.
-Native SwiftUI, documented system facilities only, no third-party dependencies.
+Native SwiftUI, documented system facilities by default (one clearly labelled experimental option aside), no third-party dependencies.
 
 <img src="assets/expanded-music.png" width="640" alt="Expanded island with the player and visualizer">
 
@@ -50,6 +50,18 @@ At rest the island blends into the notch and stays out of the way; it stretches 
 - **macOS 14** or newer.
 - **Command Line Tools** to build (`xcode-select --install`). Full Xcode is not required.
 
+## Install
+
+- **Download** the `.dmg` or `.zip` from [Releases](https://github.com/gdfaler/DynamicIsland/releases), drag the app to
+  Applications. It's self-signed and not notarized, so the first time: right-click → **Open**, or run
+  `xattr -cr /Applications/DynamicIsland.app`.
+- **Homebrew** (once the tap is published): `brew install --cask gdfaler/tap/dynamicisland`.
+- **From source**: see below.
+
+The island tells you when a new version is out (a green arrow with the version; click it to open the release page).
+That check is one request to the public GitHub Releases API every 12 hours; turn it off with *Check for updates
+automatically* in the menu.
+
 ## Build & run
 
 ```bash
@@ -69,6 +81,15 @@ to the signature, not the path, so they won't fall off.
 
 Prebuilt `.dmg`/`.zip` builds are on the Releases page (`./package.sh` makes them). The app isn't notarized:
 on first launch right-click → Open, or run `xattr -cr /Applications/DynamicIsland.app`.
+
+## Experimental: Now Playing from any app
+
+Off by default (Settings → Content). macOS doesn't give third-party apps the system's "Now Playing", so by default the
+island reads Music, Spotify and browsers through their own documented interfaces. The experimental option adds
+**any other app** (VLC, Tidal, a podcast player…) through the private MediaRemote framework. Since macOS 15.4 only
+Apple-signed processes may use it, so the app runs a small helper through `/usr/bin/perl` (Apple's own binary) and
+reads its output; the code is in `Bridge/mrbridge.c` and `Sources/MediaRemoteSource.swift`. It can stop working after
+a macOS update — when it does, turn it off; nothing else is affected.
 
 ## Permissions
 
@@ -128,6 +149,11 @@ MakeIcon.swift         the app-icon generator
 - On displays without a cutout the island is a virtual one (a black pill over the menu bar that shows only when active or hovered).
 - The signature is self-signed (local) — the app isn't notarized; it's distributed as source for a self-build.
 - "Now Playing" from apps without an AppleScript interface and outside Safari isn't visible to the island (a macOS limitation).
+
+## Contributing
+
+Bug reports, feature ideas, translations and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Security issues: [SECURITY.md](SECURITY.md).
 
 ## License
 
