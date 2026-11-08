@@ -56,8 +56,15 @@ enum BlurredArtwork {
         }
         meanSaturation /= CGFloat(max(hsb.count, 1))
         // Dominant hue: the heaviest bin of the (circularly smoothed) histogram.
-        let smoothed = (0..<24).map { histogram[($0 + 23) % 24] * 0.5 + histogram[$0] + histogram[($0 + 1) % 24] * 0.5 }
-        let dominant = (CGFloat(smoothed.indices.max { smoothed[$0] < smoothed[$1] } ?? 0) + 0.5) / 24
+        var smoothed = [CGFloat](repeating: 0, count: 24)
+        for bin in 0..<24 {
+            let before: CGFloat = histogram[(bin + 23) % 24]
+            let after: CGFloat = histogram[(bin + 1) % 24]
+            smoothed[bin] = before * 0.5 + histogram[bin] + after * 0.5
+        }
+        var strongest = 0
+        for bin in 1..<24 where smoothed[bin] > smoothed[strongest] { strongest = bin }
+        let dominant: CGFloat = (CGFloat(strongest) + 0.5) / 24
         let gray = meanSaturation < 0.12
 
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
