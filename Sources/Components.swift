@@ -69,6 +69,8 @@ final class EqualizerBarsView: NSView {
         wantsLayer = true
         layer?.masksToBounds = false
         fill.contentsGravity = .resize
+        fill.magnificationFilter = .linear
+        fill.minificationFilter = .trilinear
         fill.mask = mask
         layer?.addSublayer(fill)
         for bar in bars {

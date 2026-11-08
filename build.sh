@@ -39,6 +39,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# The experimental Now Playing bridge (Bridge/mrbridge.c) — loaded into /usr/bin/perl at run time, never linked in.
+clang -dynamiclib -arch arm64 -mmacosx-version-min=14.0 -framework CoreFoundation \
+    Bridge/mrbridge.c -o "$APP/Contents/Resources/libmrbridge.dylib"
+codesign --force --sign - "$APP/Contents/Resources/libmrbridge.dylib" >/dev/null 2>&1 || true
+
 # Localizations (Resources/<lang>.lproj/Localizable.strings).
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
 

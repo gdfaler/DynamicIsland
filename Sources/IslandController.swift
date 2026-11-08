@@ -178,6 +178,10 @@ final class IslandController {
         windows.values.forEach { $0.applyFullscreenBehavior() }
     }
 
+    func setPendingUpdate(_ version: String?) {
+        windows.values.forEach { $0.model.pendingUpdate = version }
+    }
+
     /// An alert goes to every display's island; only the visible ones show it.
     func show(_ kind: IslandAlert.Kind) {
         windows.values.forEach { $0.model.show(kind) }

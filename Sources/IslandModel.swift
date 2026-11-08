@@ -9,6 +9,7 @@ struct IslandAlert: Equatable {
         case volume(level: Double, muted: Bool)
         case device(name: String, symbol: String)
         case timerDone
+        case update(version: String)
     }
 
     var kind: Kind
@@ -21,6 +22,7 @@ struct IslandAlert: Equatable {
         case .volume: return 2
         case .device: return 3
         case .timerDone: return 4
+        case .update: return 5
         }
     }
 
@@ -35,6 +37,7 @@ struct IslandAlert: Equatable {
             let width = (name as NSString).size(withAttributes: [.font: font]).width
             return min(max(ceil(width), 30), 128) + 18
         case .timerDone: return 76
+        case .update: return 96
         }
     }
 
@@ -42,6 +45,7 @@ struct IslandAlert: Equatable {
         switch kind {
         case .volume: return 1.6
         case .timerDone: return 6
+        case .update: return 9
         default: return 3
         }
     }
@@ -87,6 +91,11 @@ final class IslandModel: ObservableObject {
     @Published private(set) var isExpanded = false
     @Published private(set) var isHovering = false
     @Published private(set) var alert: IslandAlert?
+
+    /// A release the user hasn't opened yet: the expanded island shows a chip for it.
+    @Published var pendingUpdate: String?
+    /// Opens the release page; set by the app. A tap on an "update available" alert calls it.
+    var openUpdate: (() -> Void)?
 
     private var subscriptions: Set<AnyCancellable> = []
     private var pendingExpansion: DispatchWorkItem?
@@ -196,6 +205,17 @@ final class IslandModel: ObservableObject {
         pendingExpansion?.cancel()
         if isExpanded {
             schedule(&pendingCollapse, after: 0.35) { [weak self] in self?.collapse() }
+        }
+    }
+
+    /// A tap on the island: an "update" alert opens the release page, anything else expands the island.
+    func tapped() {
+        if case .update = alert?.kind {
+            alert = nil
+            pendingDismissal?.cancel()
+            openUpdate?()
+        } else {
+            expand()
         }
     }
 
