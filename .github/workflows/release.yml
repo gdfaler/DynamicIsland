@@ -7,17 +7,49 @@ on:
 permissions:
   contents: write
 
+env:
+  # The release signing certificate's SHA-1 (public). Every release must carry exactly this identity, so macOS keeps
+  # the permissions users granted (Automation, Screen Recording) across updates.
+  RELEASE_CERT_SHA1: 86973ca7eae6f4e18ef101a1b7763b3769fca65b
+
 jobs:
   release:
     runs-on: macos-latest
+    # The signing key lives in this environment's secrets; the environment requires the maintainer's approval.
+    environment: release
     steps:
       - uses: actions/checkout@v4
       - name: Check the tag matches the app version
         run: |
           version=$(sed -n 's/^VERSION="\(.*\)"/\1/p' build.sh)
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "build.sh says $version, tag is $GITHUB_REF_NAME"; exit 1; }
+      - name: Import the release signing certificate
+        env:
+          CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          [ -n "$CERT_P12" ] || { echo "SIGNING_CERT_P12 is not available"; exit 1; }
+          keychain="$RUNNER_TEMP/release-signing.keychain-db"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/release.p12"
+          security create-keychain -p "" "$keychain"
+          security set-keychain-settings "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          security import "$RUNNER_TEMP/release.p12" -k "$keychain" -P "$CERT_PASSWORD" -A -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/release.p12"
+          {
+            echo "SIGN_ID=DynamicIsland Release Signer"
+            echo "SIGN_KC=$keychain"
+            echo "REQUIRE_SIGNING=1"
+          } >> "$GITHUB_ENV"
       - name: Build the dmg and zip
         run: ./package.sh
+      - name: Check the app carries the release identity
+        run: |
+          requirement=$(codesign -d -r- DynamicIsland.app 2>&1)
+          echo "$requirement"
+          echo "$requirement" | grep -qi "$RELEASE_CERT_SHA1" || { echo "signed with the wrong identity"; exit 1; }
       - name: Release notes from the changelog
         run: |
           version="${GITHUB_REF_NAME#v}"

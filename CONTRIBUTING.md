@@ -51,5 +51,13 @@ Notes: the command-line toolchain has no SwiftUI macros, so use `@StateObject` /
 
 ## Releasing (maintainers)
 
+Releases are signed with a dedicated self-signed certificate (`DynamicIsland Release Signer`), so every release carries the
+same code-signing identity and macOS keeps the permissions users granted across updates. The certificate and its
+password are the secrets `SIGNING_CERT_P12` / `SIGNING_CERT_PASSWORD` of the GitHub *Environment* `release`, which needs
+the maintainer's approval and only accepts `v*` tags. The workflow checks the built app carries the expected
+certificate SHA-1 and fails otherwise; to rotate the certificate, create a new one, update the secrets and the
+`RELEASE_CERT_SHA1` in `release.yml` (users are asked for the permissions once more).
+
+
 Bump `VERSION` in `build.sh`, move *Unreleased* to the new version in `CHANGELOG.md`, tag `vX.Y` and push the tag — the
 *Release* workflow builds the `.dmg`/`.zip` and attaches them to the GitHub release. Then update `version` and `sha256` in `Casks/dynamicisland.rb`.

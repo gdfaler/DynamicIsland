@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3
+
+- **Stable signing.** Releases are signed with one dedicated certificate (CI, protected environment), so macOS no
+  longer asks for the Automation / Screen Recording permissions again after an update (the first update from an
+  older, ad-hoc signed release asks once). The in-place updater only accepts an update signed by the same certificate.
+- **Update in place.** Confirm an update and the app downloads the release, verifies its checksum and signature,
+  replaces itself and restarts, with progress shown on the island. A copy that can't modify its own folder, or a
+  development build, is pointed to the release page instead.
+
 ## 1.2
 
 - **Update notifications.** The island announces a new release (green arrow and version; click opens the release

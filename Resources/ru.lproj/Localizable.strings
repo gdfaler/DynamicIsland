@@ -34,7 +34,7 @@
 "Size without a notch" = "Размер на экране без выреза";
 "Automatic" = "Автоматически";
 "Check for updates automatically" = "Проверять обновления автоматически";
-"Update available: v%@ — download…" = "Доступно обновление v%@ — скачать…";
+
 "Check for updates…" = "Проверить обновления…";
 "You're up to date" = "Установлена последняя версия";
 "DynamicIsland %@ is the latest version." = "DynamicIsland %@ — актуальная версия.";
@@ -71,3 +71,28 @@
 "Version %@" = "Версия %@";
 "Report a problem" = "Сообщить о проблеме";
 "Release notes" = "Что нового";
+"Installing" = "Установка";
+"Update available: v%@ — install…" = "Доступно обновление v%@ — установить…";
+"Release notes…" = "Что нового…";
+"Couldn't install the update" = "Не удалось установить обновление";
+"DynamicIsland v%@ is available" = "Доступна версия DynamicIsland v%@";
+"Install DynamicIsland v%@?" = "Установить DynamicIsland v%@?";
+"The update is downloaded from GitHub, checked against its published checksum and replaces this copy; the app then restarts. Your settings are kept. macOS may ask for some permissions again." = "Обновление скачивается с GitHub, сверяется с опубликованной контрольной суммой и заменяет эту копию, после чего приложение перезапускается. Настройки сохраняются. macOS может снова запросить некоторые разрешения.";
+"Install and restart" = "Установить и перезапустить";
+"Cancel" = "Отмена";
+"Open release page" = "Открыть страницу релиза";
+"OK" = "OK";
+"This release has no verified download — open the release page to update." = "У этого релиза нет проверяемой загрузки — обновитесь со страницы релиза.";
+"DynamicIsland isn't running as an app bundle." = "DynamicIsland запущен не как приложение.";
+"This is a development build — rebuild it with ./build.sh." = "Это сборка для разработки — пересоберите её через ./build.sh.";
+"DynamicIsland can't change its own folder. Update it from the release page or move it to Applications." = "DynamicIsland не может менять свою папку. Обновитесь со страницы релиза или перенесите приложение в «Программы».";
+"Couldn't prepare a folder for the update." = "Не удалось подготовить папку для обновления.";
+"The download failed." = "Загрузка не удалась.";
+"Couldn't save the download." = "Не удалось сохранить загрузку.";
+"The download doesn't match its published checksum, so it was discarded." = "Загрузка не совпала с опубликованной контрольной суммой и была удалена.";
+"Couldn't unpack the download." = "Не удалось распаковать загрузку.";
+"The download isn't the expected version of DynamicIsland." = "Загруженный файл — не та версия DynamicIsland, которую ждали.";
+"The downloaded app's signature is damaged." = "Подпись загруженного приложения повреждена.";
+"Couldn't prepare the installer." = "Не удалось подготовить установщик.";
+"Couldn't start the installer." = "Не удалось запустить установщик.";
+"The download isn't signed by the same developer as this app." = "Загрузка подписана не тем же разработчиком, что и это приложение.";
