@@ -3,8 +3,8 @@
 #   brew install --cask dynamicisland
 # Update `version` and `sha256` for each release:  shasum -a 256 DynamicIsland-<version>.zip
 cask "dynamicisland" do
-  version "1.3"
-  sha256 "763061e752e0d70e01e6865dfae3f1dd2e2beb68c6818d1cb94daaa2012564e0"
+  version "1.3.1"
+  sha256 "c6eb73911fe692240da3e0621ef24817515d4aca3b87abdcee339dbe5fb86171"
 
   url "https://github.com/gdfaler/DynamicIsland/releases/download/v#{version}/DynamicIsland-#{version}.zip"
   name "DynamicIsland"
