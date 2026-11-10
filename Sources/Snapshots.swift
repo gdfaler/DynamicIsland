@@ -41,6 +41,11 @@ enum Snapshots {
             }),
             ("12-expanded-clock", { model.timer.cancel() }),
             ("13-update", { model.collapse(); model.show(.update(version: "1.2")) }),
+            ("15-wide-artwork", {
+                model.media.present(track)
+                model.media.setArtwork(sampleWideArtwork())
+                model.expand()
+            }),
             ("14-expanded-update", {
                 model.media.present(track)
                 model.media.setArtwork(sampleArtwork())
@@ -73,6 +78,19 @@ enum Snapshots {
         context.draw(image, in: bounds)
         guard let flattened = context.makeImage() else { return }
         try? NSBitmapImageRep(cgImage: flattened).representation(using: .png, properties: [:])?.write(to: url)
+    }
+
+    /// A 16:9 picture with a circle and a frame: cropping or stretching would be obvious.
+    private static func sampleWideArtwork() -> NSImage {
+        NSImage(size: NSSize(width: 320, height: 180), flipped: false) { rect in
+            NSGradient(starting: NSColor(srgbRed: 0.1, green: 0.6, blue: 0.9, alpha: 1),
+                       ending: NSColor(srgbRed: 0.95, green: 0.7, blue: 0.1, alpha: 1))?.draw(in: rect, angle: 20)
+            NSColor.white.setStroke()
+            let frame = NSBezierPath(rect: rect.insetBy(dx: 6, dy: 6)); frame.lineWidth = 4; frame.stroke()
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 110, y: 40, width: 100, height: 100)).fill()
+            return true
+        }
     }
 
     private static func sampleArtwork() -> NSImage {
