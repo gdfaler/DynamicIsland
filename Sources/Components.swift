@@ -2,25 +2,34 @@ import SwiftUI
 import AppKit
 import QuartzCore
 
-/// Track artwork; while there's none, a music-note placeholder.
+/// Track artwork; while there's none, a music-note placeholder. A picture that isn't square (a video thumbnail)
+/// is shown whole, in the middle of the square slot, neither cropped nor stretched, with its own corners rounded.
 struct ArtworkView: View {
     var image: NSImage?
     var size: CGFloat
 
     var body: some View {
-        ZStack {
-            if let image {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-            } else {
+        if let image {
+            let aspect = max(image.size.width, 1) / max(image.size.height, 1)
+            // The fitted picture's size, to round its corners in proportion to its short side (a square gets the
+            // same radius as the placeholder).
+            let shortSide = size * min(aspect, 1 / aspect)
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: shortSide * 0.24, style: .continuous))
+                .frame(width: size, height: size)
+        } else {
+            ZStack {
                 LinearGradient(colors: [Color(red: 0.98, green: 0.36, blue: 0.45), Color(red: 0.86, green: 0.15, blue: 0.35)],
                                startPoint: .top, endPoint: .bottom)
                 Image(systemName: "music.note")
                     .font(.system(size: size * 0.5, weight: .semibold))
                     .foregroundStyle(.white)
             }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
         }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
     }
 }
 

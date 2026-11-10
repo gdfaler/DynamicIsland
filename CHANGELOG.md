@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1
+
+- **Artwork.** A cover that isn't square (a video thumbnail) is shown whole in the middle of the square slot — not
+  cropped, not stretched — with its own corners rounded.
+
 ## 1.3
 
 - **Stable signing.** Releases are signed with one dedicated certificate (CI, protected environment), so macOS no
