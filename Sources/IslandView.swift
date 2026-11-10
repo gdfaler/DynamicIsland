@@ -122,6 +122,10 @@ struct AlertRow: View {
             Image(systemName: "arrow.down.circle.fill")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Palette.green)
+        case .updating:
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.green)
         }
     }
 
@@ -141,6 +145,8 @@ struct AlertRow: View {
             Text(L("Timer")).foregroundStyle(Palette.orange)
         case .update(let version):
             Text("v\(version)").foregroundStyle(Palette.green).monospacedDigit()
+        case .updating(let percent):
+            Text(percent.map { "\($0) %" } ?? L("Installing")).foregroundStyle(Palette.green).monospacedDigit()
         }
     }
 

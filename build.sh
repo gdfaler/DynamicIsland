@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 APP="DynamicIsland.app"
 BUNDLE_ID="local.dynamicisland"
-VERSION="1.2"
+VERSION="1.3"
 
 # If an old instance is running, close it.
 if pkill -x DynamicIsland 2>/dev/null; then sleep 1; fi
@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>DynamicIsland</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
-    <key>CFBundleVersion</key><string>3</string>
+    <key>CFBundleVersion</key><string>4</string>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleLocalizations</key><array><string>en</string><string>ru</string></array>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
@@ -65,10 +65,13 @@ rm -rf "$(dirname "$ICONSET")"
 # tied to it: Screen Recording, Automation for Music/Safari) changed on every rebuild, so macOS treated the app as
 # new and the permissions "fell off". The certificate lives in a separate keychain and is created once, so from then
 # on the signature is stable and permissions survive rebuilds.
-SIGN_ID="DynamicIsland Local Signer"
-SIGN_KC="$HOME/Library/Keychains/dynamicisland-signing.keychain-db"
+# A release build (CI) passes its own identity and keychain, and REQUIRE_SIGNING=1 so it can never fall back to
+# ad-hoc silently: every release must carry the same signing identity, otherwise macOS asks for the permissions
+# (Automation, Screen Recording) again after each update.
+SIGN_ID="${SIGN_ID:-DynamicIsland Local Signer}"
+SIGN_KC="${SIGN_KC:-$HOME/Library/Keychains/dynamicisland-signing.keychain-db}"
 
-if ! security find-certificate -c "$SIGN_ID" "$SIGN_KC" >/dev/null 2>&1; then
+if [ "${REQUIRE_SIGNING:-0}" != "1" ] && ! security find-certificate -c "$SIGN_ID" "$SIGN_KC" >/dev/null 2>&1; then
     echo "→ Creating the persistent signing identity (one time)…"
     TMP="$(mktemp -d)"
     cat > "$TMP/cert.conf" <<'CONF'
@@ -102,7 +105,13 @@ if security find-certificate -c "$SIGN_ID" "$SIGN_KC" >/dev/null 2>&1; then
     security unlock-keychain -p "" "$SIGN_KC" 2>/dev/null || true
     # Pre-authorize codesign to use the key (the keychain password is empty) — otherwise macOS asks for it by hand.
     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$SIGN_KC" >/dev/null 2>&1 || true
+    # The bridge library is signed with the same identity, then the app seals it.
+    codesign --force --sign "$SIGN_ID" --keychain "$SIGN_KC" "$APP/Contents/Resources/libmrbridge.dylib" >/dev/null 2>&1 || true
     if codesign --force --sign "$SIGN_ID" --keychain "$SIGN_KC" "$APP"; then SIGNED=1; fi
+fi
+if [ "$SIGNED" -eq 0 ] && [ "${REQUIRE_SIGNING:-0}" = "1" ]; then
+    echo "error: REQUIRE_SIGNING is set but signing with '$SIGN_ID' failed" >&2
+    exit 1
 fi
 if [ "$SIGNED" -eq 0 ]; then
     # The certificate may exist but be unusable (e.g. a fresh CI keychain) — fall back to ad-hoc.

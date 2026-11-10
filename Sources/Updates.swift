@@ -8,7 +8,12 @@ final class UpdateChecker {
 
     struct Release: Equatable {
         var version: String
+        /// The release page.
         var url: URL
+        /// The app archive (.zip) from this repository's release, and the SHA-256 GitHub publishes for it. An
+        /// in-place update needs both; without them the island only offers the release page.
+        var archive: URL?
+        var sha256: String?
     }
 
     /// A release newer than the running app, once one has been found.
@@ -89,10 +94,15 @@ final class UpdateChecker {
         }.resume()
     }
 
-    /// Opens the release page, and counts the news as seen: the badge and reminders stop.
-    func openReleasePage() {
+    /// Counts the news as seen: the badge and the reminders stop.
+    func acknowledge() {
         if let available { defaults.set(available.version, forKey: "updateAcknowledged") }
         onPendingChange?(pending)
+    }
+
+    /// Opens the release page (which also counts the news as seen).
+    func openReleasePage() {
+        acknowledge()
         let fallback = URL(string: "https://github.com/\(Self.repository)/releases/latest")!
         NSWorkspace.shared.open(available?.url ?? fallback)
     }
@@ -104,7 +114,20 @@ final class UpdateChecker {
               let tag = object["tag_name"] as? String,
               object["draft"] as? Bool != true, object["prerelease"] as? Bool != true,
               let page = (object["html_url"] as? String).flatMap(URL.init(string:)) else { return nil }
-        return Release(version: tag.hasPrefix("v") ? String(tag.dropFirst()) : tag, url: page)
+        // The app archive, only if it really is this repository's release asset, with its published checksum.
+        let prefix = "https://github.com/\(repository)/releases/download/"
+        var archive: URL?
+        var sha256: String?
+        for asset in object["assets"] as? [[String: Any]] ?? [] {
+            guard let name = asset["name"] as? String, name.hasSuffix(".zip"),
+                  let link = asset["browser_download_url"] as? String, link.hasPrefix(prefix),
+                  let digest = asset["digest"] as? String, digest.hasPrefix("sha256:") else { continue }
+            archive = URL(string: link)
+            sha256 = String(digest.dropFirst("sha256:".count)).lowercased()
+            break
+        }
+        return Release(version: tag.hasPrefix("v") ? String(tag.dropFirst()) : tag, url: page,
+                       archive: archive, sha256: sha256)
     }
 
     /// "1.10" is newer than "1.9": compared number by number.

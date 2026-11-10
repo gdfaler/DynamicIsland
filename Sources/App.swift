@@ -35,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let meter = AudioMeter()
     private let updates = UpdateChecker()
     private let settingsWindow = SettingsWindowController()
+    private let installer = SelfUpdater()
+    private var lastShownPercent = -1
 
     private let menu = NSMenu()
     private var controller: IslandController?
@@ -63,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         let controller = IslandController(settings: settings, menu: menu) { [self] in
             let model = IslandModel(settings: settings, media: media, power: power, timer: timer, meter: meter)
-            model.openUpdate = { [weak self] in self?.updates.openReleasePage() }
+            model.openUpdate = { [weak self] in self?.installUpdate() }
             return model
         }
         self.controller = controller
@@ -94,7 +96,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.controller?.setPendingUpdate(release?.version)
             self?.updateBadge(release != nil)
         }
-        updates.onNewVersion = { [weak self] release in self?.controller?.show(.update(version: release.version)) }
+        installer.onPhase = { [weak self] phase in
+            guard let self else { return }
+            switch phase {
+            case .downloading(let fraction):
+                let percent = Int(fraction * 100)
+                guard percent != self.lastShownPercent else { return }
+                self.lastShownPercent = percent
+                self.controller?.show(.updating(percent: percent))
+            case .verifying, .installing:
+                self.controller?.show(.updating(percent: nil))
+            }
+        }
+        installer.onFailure = { [weak self] message in
+            self?.lastShownPercent = -1
+            self?.offerReleasePage(title: L("Couldn't install the update"), detail: message)
+        }
+        updates.onNewVersion = { [weak self] release in
+            self?.controller?.show(.update(version: release.version))
+            if ProcessInfo.processInfo.environment["ISLAND_TEST_AUTO_INSTALL"] != nil { self?.installUpdate() }
+        }
 
         if ProcessInfo.processInfo.environment["ISLAND_OPEN_SETTINGS"] != nil { openSettings() }
 
@@ -146,11 +167,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(virtualStyleItem())
         menu.addItem(virtualSizeItem())
         if let release = updates.available {
-            let item = NSMenuItem(title: String(format: L("Update available: v%@ — download…"), release.version),
-                                  action: #selector(openUpdate), keyEquivalent: "")
+            let item = NSMenuItem(title: String(format: L("Update available: v%@ — install…"), release.version),
+                                  action: #selector(installUpdate), keyEquivalent: "")
             item.target = self
             menu.insertItem(item, at: 0)
-            menu.insertItem(.separator(), at: 1)
+            let notes = NSMenuItem(title: L("Release notes…"), action: #selector(openUpdate), keyEquivalent: "")
+            notes.target = self
+            menu.insertItem(notes, at: 1)
+            menu.insertItem(.separator(), at: 2)
         }
         let check = NSMenuItem(title: L("Check for updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
         check.target = self
@@ -188,10 +212,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openUpdate() { updates.openReleasePage() }
 
+    /// Asks, then downloads and installs the new version over this one and restarts.
+    @objc private func installUpdate() {
+        guard let release = updates.available, !installer.isBusy else { return }
+        if let reason = SelfUpdater.blocker(for: release) {
+            return offerReleasePage(title: String(format: L("DynamicIsland v%@ is available"), release.version), detail: reason)
+        }
+        // Test hook: install without asking (used to try the whole update on a copy of the app).
+        if ProcessInfo.processInfo.environment["ISLAND_TEST_AUTO_INSTALL"] != nil {
+            lastShownPercent = -1
+            return installer.install(release)
+        }
+        let alert = NSAlert()
+        alert.messageText = String(format: L("Install DynamicIsland v%@?"), release.version)
+        alert.informativeText = L("The update is downloaded from GitHub, checked against its published checksum and replaces this copy; the app then restarts. Your settings are kept. macOS may ask for some permissions again.")
+        alert.addButton(withTitle: L("Install and restart"))
+        alert.addButton(withTitle: L("Release notes"))
+        alert.addButton(withTitle: L("Cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            updates.acknowledge()
+            lastShownPercent = -1
+            installer.install(release)
+        case .alertSecondButtonReturn:
+            updates.openReleasePage()
+        default:
+            break
+        }
+    }
+
+    private func offerReleasePage(title: String, detail: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = detail
+        alert.addButton(withTitle: L("Open release page"))
+        alert.addButton(withTitle: L("OK"))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { updates.openReleasePage() }
+    }
+
     @objc private func checkForUpdates() {
         updates.check(userInitiated: true) { [weak self] result in
             switch result {
-            case .success(.some): break    // the island announces it
+            case .success(.some): self?.installUpdate()    // the island announces it too
             case .success(.none):
                 self?.report(L("You're up to date"),
                              String(format: L("DynamicIsland %@ is the latest version."), UpdateChecker.currentVersion))

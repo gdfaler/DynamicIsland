@@ -10,6 +10,8 @@ struct IslandAlert: Equatable {
         case device(name: String, symbol: String)
         case timerDone
         case update(version: String)
+        /// An update being installed: the download's percentage, or nil for the steps without one.
+        case updating(percent: Int?)
     }
 
     var kind: Kind
@@ -23,6 +25,7 @@ struct IslandAlert: Equatable {
         case .device: return 3
         case .timerDone: return 4
         case .update: return 5
+        case .updating: return 6
         }
     }
 
@@ -38,6 +41,7 @@ struct IslandAlert: Equatable {
             return min(max(ceil(width), 30), 128) + 18
         case .timerDone: return 76
         case .update: return 96
+        case .updating: return 104
         }
     }
 
@@ -46,6 +50,7 @@ struct IslandAlert: Equatable {
         case .volume: return 1.6
         case .timerDone: return 6
         case .update: return 9
+        case .updating: return 4
         default: return 3
         }
     }
@@ -210,6 +215,7 @@ final class IslandModel: ObservableObject {
 
     /// A tap on the island: an "update" alert opens the release page, anything else expands the island.
     func tapped() {
+        if case .updating = alert?.kind { return }
         if case .update = alert?.kind {
             alert = nil
             pendingDismissal?.cancel()
