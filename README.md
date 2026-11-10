@@ -64,9 +64,12 @@ At rest the island blends into the notch and stays out of the way; it stretches 
   The cask also clears the quarantine flag, so no right-click → Open is needed.
 - **From source**: see below.
 
-The island tells you when a new version is out (a green arrow with the version; click it to open the release page).
-That check is one request to the public GitHub Releases API every 12 hours; turn it off with *Check for updates
-automatically* in the menu.
+The island tells you when a new version is out (a green arrow with the version) and can **install it in place**: click
+the arrow (or the chip in the expanded island, or *Update available…* in the menu), confirm, and the app downloads the
+release from this repository, checks it against the SHA-256 GitHub publishes for it, replaces itself and restarts. The
+check is one request to the public GitHub Releases API every 12 hours; turn it off with *Check for updates
+automatically*. Builds are self-signed, so macOS may ask for the Automation / Screen Recording permissions again after an
+update. A copy that can't modify its own folder (or a development build) is only pointed to the release page.
 
 ## Build & run
 
